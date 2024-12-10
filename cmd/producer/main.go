@@ -12,7 +12,7 @@ func main() {
 	producer := NewKafkaProducer()
 	defer producer.Close()
 
-	Publish("Hello, World!", "teste", producer, []byte("key"), deliveryChan)
+	Publish("Hello, World!", "teste", producer, []byte("transfer"), deliveryChan)
 	go DeliveryReport(deliveryChan)
 
 	producer.Flush(1000)
@@ -20,7 +20,10 @@ func main() {
 
 func NewKafkaProducer() *kafka.Producer {
 	configMap := &kafka.ConfigMap{
-		"bootstrap.servers": "kafka-fc-kafka-1:9092",
+		"bootstrap.servers":   "kafka-fc-kafka-1:9092",
+		"delivery.timeout.ms": "0",
+		"acks":                "all",
+		"enable.idempotence":  "true",
 	}
 	p, err := kafka.NewProducer(configMap)
 	if err != nil {
