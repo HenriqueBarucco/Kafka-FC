@@ -7,14 +7,22 @@ import (
 )
 
 func main() {
+	deliveryChan := make(chan kafka.Event)
+
 	producer := NewKafkaProducer()
 	defer producer.Close()
 
-	err := Publish("Hello, World!", "teste", producer, []byte("key"))
-	producer.Flush(1000)
-	if err != nil {
-		log.Println(err.Error())
+	Publish("Hello, World!", "teste", producer, []byte("key"), deliveryChan)
+
+	e := <-deliveryChan
+	msg := e.(*kafka.Message)
+	if msg.TopicPartition.Error != nil {
+		log.Println("Delivery failed: ", msg.TopicPartition.Error)
+	} else {
+		log.Println("Delivered message to topic ", *msg.TopicPartition.Topic, " [", msg.TopicPartition.Partition, "] at offset ", msg.TopicPartition.Offset)
 	}
+
+	producer.Flush(1000)
 }
 
 func NewKafkaProducer() *kafka.Producer {
@@ -28,12 +36,12 @@ func NewKafkaProducer() *kafka.Producer {
 	return p
 }
 
-func Publish(msg string, topic string, producer *kafka.Producer, key []byte) error {
+func Publish(msg string, topic string, producer *kafka.Producer, key []byte, deliveryChan chan kafka.Event) error {
 	message := &kafka.Message{
 		Value:          []byte(msg),
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Key:            key,
 	}
-	err := producer.Produce(message, nil)
+	err := producer.Produce(message, deliveryChan)
 	return err
 }
