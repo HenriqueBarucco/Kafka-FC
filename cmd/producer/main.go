@@ -13,14 +13,7 @@ func main() {
 	defer producer.Close()
 
 	Publish("Hello, World!", "teste", producer, []byte("key"), deliveryChan)
-
-	e := <-deliveryChan
-	msg := e.(*kafka.Message)
-	if msg.TopicPartition.Error != nil {
-		log.Println("Delivery failed: ", msg.TopicPartition.Error)
-	} else {
-		log.Println("Delivered message to topic ", *msg.TopicPartition.Topic, " [", msg.TopicPartition.Partition, "] at offset ", msg.TopicPartition.Offset)
-	}
+	go DeliveryReport(deliveryChan)
 
 	producer.Flush(1000)
 }
@@ -44,4 +37,17 @@ func Publish(msg string, topic string, producer *kafka.Producer, key []byte, del
 	}
 	err := producer.Produce(message, deliveryChan)
 	return err
+}
+
+func DeliveryReport(deliveryChan chan kafka.Event) {
+	for e := range deliveryChan {
+		switch ev := e.(type) {
+		case *kafka.Message:
+			if ev.TopicPartition.Error != nil {
+				log.Println("Delivery failed: ", ev.TopicPartition.Error)
+			} else {
+				log.Println("Delivered message to topic ", *ev.TopicPartition.Topic, " [", ev.TopicPartition.Partition, "] at offset ", ev.TopicPartition.Offset)
+			}
+		}
+	}
 }
